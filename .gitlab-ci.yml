@@ -1,0 +1,73 @@
+default:
+  tags:
+    - gitlab
+
+stages:
+  - build
+  - test
+  - push
+  - deploy
+
+variables:
+  TAG: $CI_COMMIT_SHORT_SHA
+
+build:
+  stage: build
+  script:
+    - docker build -t $DOCKER_USER/k-api-gateway:$TAG ./gateway
+    - docker build -t $DOCKER_USER/k-users:$TAG ./users
+    - docker build -t $DOCKER_USER/k-orders:$TAG ./orders
+
+test_users:
+  stage: test
+  script:
+    - docker run --rm $DOCKER_USER/k-users:$TAG sh -c "cd /app && python -m tests.auth"
+
+push:
+  stage: push
+  script:
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    - docker push $DOCKER_USER/k-api-gateway:$TAG
+    - docker push $DOCKER_USER/k-users:$TAG
+    - docker push $DOCKER_USER/k-orders:$TAG
+    - docker logout
+
+.deploy:
+  stage: deploy
+  script:
+    - sudo helm upgrade --install microservices helm/microservices -n $NAMESPACE --set dockerUser=$DOCKER_USER --set tag=$TAG --set gatewayNodePort=$NODEPORT
+
+deploy_dev:
+  extends: .deploy
+  variables:
+    NAMESPACE: dev
+    NODEPORT: "30100"
+  environment:
+    name: dev
+
+deploy_qa:
+  extends: .deploy
+  variables:
+    NAMESPACE: qa
+    NODEPORT: "30101"
+  environment:
+    name: qa
+
+deploy_staging:
+  extends: .deploy
+  variables:
+    NAMESPACE: staging
+    NODEPORT: "30102"
+  environment:
+    name: staging
+
+deploy_prod:
+  extends: .deploy
+  variables:
+    NAMESPACE: prod
+    NODEPORT: "30103"
+  environment:
+    name: prod
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual

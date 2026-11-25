@@ -1,0 +1,10 @@
+dockerUser: vaishnavi9820
+tag: latest
+gatewayNodePort: 30100
+services:
+  - name: gateway
+    image: k-api-gateway
+  - name: users
+    image: k-users
+  - name: orders
+    image: k-orders

@@ -1,0 +1,19 @@
+{{- range .Values.services }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+spec:
+{{- if eq .name "gateway" }}
+  type: NodePort
+{{- end }}
+  selector:
+    app: {{ .name }}
+  ports:
+    - port: 8000
+      targetPort: 8000
+{{- if eq .name "gateway" }}
+      nodePort: {{ $.Values.gatewayNodePort }}
+{{- end }}
+---
+{{- end }}
